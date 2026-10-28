@@ -4,11 +4,13 @@ import 'package:localsend_app/provider/favorites_provider.dart';
 import 'package:localsend_app/provider/local_ip_provider.dart';
 import 'package:localsend_app/provider/network/nearby_devices_provider.dart';
 import 'package:localsend_app/provider/settings_provider.dart';
+import 'package:localsend_app/util/native/tailscale_helper.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 
 /// Discovers devices in stages, cheapest first: multicast announcement and
 /// favorite probes right away, http-based discovery on the subnets only when
-/// nothing was confirmed within 1 second.
+/// nothing was confirmed within 1 second. Online Tailscale peers are probed
+/// like favorites.
 class StartSmartScan extends AsyncGlobalAction {
   /// Maximum number of interfaces to scan.
   /// If there are more interfaces, the first ones will be used or the user needs to select one.
@@ -18,13 +20,16 @@ class StartSmartScan extends AsyncGlobalAction {
   Future<void> reduce() async {
     final favorites = ref.read(favoritesProvider);
     final settings = ref.read(settingsProvider);
-    final networkInterfaces = ref.read(localIpProvider).localIps.take(maxInterfaces).toList();
+    // Subnet scans are pointless on a Tailscale address; its peers are probed individually below.
+    final networkInterfaces = ref.read(localIpProvider).localIps.where((ip) => !isTailscaleAddress(ip)).take(maxInterfaces).toList();
+    final tailscalePeers = await fetchTailscalePeerIps();
 
     await ref
         .redux(nearbyDevicesProvider)
         .dispatchAsync(
           StartStagedScan(
             favorites: favorites,
+            extraTargets: tailscalePeers,
             interfaces: networkInterfaces,
             port: settings.port,
             https: settings.https,

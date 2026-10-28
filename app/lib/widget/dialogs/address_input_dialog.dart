@@ -10,6 +10,7 @@ import 'package:localsend_app/provider/http_provider.dart';
 import 'package:localsend_app/provider/last_devices.provider.dart';
 import 'package:localsend_app/provider/local_ip_provider.dart';
 import 'package:localsend_app/provider/settings_provider.dart';
+import 'package:localsend_app/util/native/tailscale_helper.dart';
 import 'package:localsend_app/widget/dialogs/error_dialog.dart';
 import 'package:localsend_isolates/model/device.dart';
 import 'package:localsend_isolates/rust/api/model.dart';
@@ -119,7 +120,7 @@ class _AddressInputDialogState extends State<AddressInputDialog> with Refena {
 
   @override
   Widget build(BuildContext context) {
-    final localIps = (ref.watch(localIpProvider.select((info) => info.localIps))).uniqueIpPrefix;
+    final localIps = (ref.watch(localIpProvider.select((info) => info.localIps))).where((ip) => !isTailscaleAddress(ip)).toList().uniqueIpPrefix;
     final settings = ref.watch(settingsProvider);
     final lastDevices = ref.watch(lastDevicesProvider);
 
